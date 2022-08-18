@@ -2,6 +2,7 @@
  * @file memory_pool.h
  * @author Jamishon
  * @brief Request memory in the thread pool beforehand, then use it.
+
  * @version 0.1
  * @date 2022-08-16
  *
@@ -10,19 +11,22 @@
  */
 #include <bits/types.h>
 
+#include <vector>
+
 typedef __u_char byte;
+typedef __u_int size_t;
 
 #define LARGE_SIZE 4095
 
-#define ALIGN_NUM(n, alignment)  (((n) + (alignment) - 1) &( ~((aligment)-1)))
-#define ALIGN_PTR(ptr, aligment)                    \
-(__u_char *) (( (__u_long)(ptr) + (__u_long)(alignment) - 1) & ( ~( (__u_long)(aligment)-1)))
-
+#define ALIGN_NUM(n, alignment) (((n) + (alignment)-1) & (~((aligment)-1)))
+#define ALIGN_PTR(ptr, aligment)                            \
+  (__u_char*)(((__u_long)(ptr) + (__u_long)(alignment)-1) & \
+              (~((__u_long)(aligment)-1)))
 
 class MemoryPool {
  public:
-   MemoryPool();
-   ~MemoryPool();
+  MemoryPool();
+  ~MemoryPool();
 
   struct Pool;
 
@@ -31,40 +35,67 @@ class MemoryPool {
     byte* start;
     byte* last;
     byte* end;
+    int failed_times;
   };
 
   struct LargeNode {
     LargeNode* next;
-    byte* data;
+    void* buf;
   };
 
   struct Block {
     byte* start;
-    byte* last;
     byte* end;
+
+    byte* cur;
+    byte* last;
+
+    void* tag;
   };
 
   struct ChainNode {
     ChainNode* next;
-    Block* cur;
+    Block* block;
   };
 
   struct Pool {
     PoolNode node;
-    Pool* current;
+    // Pool* current;
     LargeNode* large;
     ChainNode* chain;
-    unsigned long min_large_division;
+    unsigned long large_mark;
   };
 
-  void InitPool();
-  void DestoryPool();
-  void ResetPool();
+  struct PoolList {
+    Pool* pool_head;
+    Pool* current;
+    Pool** pool_tail;
+  };
 
-  byte* AllocateMinMemory(Pool* p, int size);
-  byte* AllocateLargeMemory(Pool* p, int size);
+  struct BlockList {
+    ChainNode* head_block;
+    ChainNode** tail_block;
+    ChainNode* current;
+  };
 
-private:
-  Pool*  pool_head_;
-  Pool** pool_tail_;
+  size_t InitPool(size_t size);
+  void DestoryPool(size_t pool_id);
+  void ResetPool(size_t pool_id);
+
+  void* AllocateMemory(size_t pool_id, size_t size);
+  void* AllocateMinMemory(size_t pool_id, size_t size);
+  void* AllocateLargeMemory(size_t pool_id, size_t size);
+
+  // size_t InitBlock(size_t pool_id, size_t init_size);
+  size_t InitBlockChain(size_t pool_id, size_t init_size, size_t node_num = 1);
+  size_t CopyBlockChain(size_t pool_id, size_t dest_chain_id,
+                        size_t src_chain_id);
+  ChainNode* GetChainNode(size_t pool_id);
+  ChainNode* GetFreeChainNode(size_t pool_id, size_t free_chain_id);
+  void UpdateChain(size_t pool_id, size_t free_chain_id, size_t busy_chain_id,
+                   size_t out_chain_id, void* tag);
+
+ private:
+  std::vector<PoolList*> mem_pools_;
+  std::vector<BlockList*> block_bufs_;
 };
