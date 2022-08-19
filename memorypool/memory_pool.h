@@ -10,13 +10,19 @@
  *
  */
 #include <bits/types.h>
+#include <stddef.h>
 
 #include <vector>
 
 typedef __u_char byte;
-typedef __u_int size_t;
+
+//typedef __u_int size_t;
 
 #define LARGE_SIZE 4095
+
+#define DEBUG_
+
+using namespace std;
 
 #define ALIGN_NUM(n, alignment) (((n) + (alignment)-1) & (~((aligment)-1)))
 #define ALIGN_PTR(ptr, aligment)                            \
@@ -60,7 +66,6 @@ class MemoryPool {
 
   struct Pool {
     PoolNode node;
-    // Pool* current;
     LargeNode* large;
     ChainNode* chain;
     unsigned long large_mark;
@@ -85,6 +90,7 @@ class MemoryPool {
   void* AllocateMemory(size_t pool_id, size_t size);
   void* AllocateMinMemory(size_t pool_id, size_t size);
   void* AllocateLargeMemory(size_t pool_id, size_t size);
+  int FreeLargeMemory(size_t pool_id, void* large);
 
   // size_t InitBlock(size_t pool_id, size_t init_size);
   size_t InitBlockChain(size_t pool_id, size_t init_size, size_t node_num = 1);
@@ -94,6 +100,9 @@ class MemoryPool {
   ChainNode* GetFreeChainNode(size_t pool_id, size_t free_chain_id);
   void UpdateChain(size_t pool_id, size_t free_chain_id, size_t busy_chain_id,
                    size_t out_chain_id, void* tag);
+
+  PoolList* GetPoolList(size_t pool_id);
+  BlockList* GetBlockList(size_t block_id);                   
 
  private:
   std::vector<PoolList*> mem_pools_;

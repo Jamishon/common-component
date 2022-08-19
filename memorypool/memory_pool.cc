@@ -14,11 +14,15 @@
 
 MemoryPool::MemoryPool() {}
 
-MemoryPool::~MemoryPool() {}
+MemoryPool::~MemoryPool() {
+  for (int i = 0; i < mem_pools_.size(); i++) {
+    DestoryPool(i);
+  }
+}
 
 size_t MemoryPool::InitPool(size_t init_size) {
   Pool* pool = (Pool*)malloc(init_size + sizeof(Pool));
-  if (pool == NULL) return;
+  if (pool == NULL) return 0;
 
   pool->node.start = (byte*)pool + sizeof(Pool);
   pool->node.end = (byte*)pool + init_size + sizeof(Pool);
@@ -27,12 +31,10 @@ size_t MemoryPool::InitPool(size_t init_size) {
   pool->node.failed_times = 0;
 
   pool->chain = NULL;
-  // pool->current = pool;
   pool->large = NULL;
   pool->large_mark = init_size < LARGE_SIZE ? init_size : LARGE_SIZE;
 
   PoolList* list = (PoolList*)malloc(sizeof(PoolList));
-
   list->pool_head = pool;
   list->current = pool;
   list->pool_tail = &pool->node.next;
@@ -43,7 +45,8 @@ size_t MemoryPool::InitPool(size_t init_size) {
 }
 
 void MemoryPool::DestoryPool(size_t pool_id) {
-  Pool* pool_head = mem_pools_.at(pool_id)->pool_head;
+  PoolList* list = mem_pools_.at(pool_id);
+  Pool* pool_head = list->pool_head;
   Pool* cur = NULL;
   LargeNode* large = NULL;
 
@@ -56,14 +59,17 @@ void MemoryPool::DestoryPool(size_t pool_id) {
       cur->large = large->next;
       free(large->buf);
       large->next = NULL;
-      free(large);
+
+#ifdef DEBUG_
+        printf("DestoryPool free large buf:%p\n", large->buf);
+#endif      
     }
 
-    // cur->current = NULL;
     cur->chain = NULL;
-
     free(cur);
   }
+
+  free(list);
 }
 
 /**
@@ -73,7 +79,6 @@ void MemoryPool::DestoryPool(size_t pool_id) {
 void MemoryPool::ResetPool(size_t pool_id) {
   PoolList* list = mem_pools_.at(pool_id);
   Pool* pool_head = list->pool_head;
-  Pool** pool_tail = list->pool_tail;
   if (pool_head != NULL) {
     Pool* cur = NULL;
     Pool** ll = &pool_head->node.next;
@@ -87,11 +92,15 @@ void MemoryPool::ResetPool(size_t pool_id) {
         large = cur->large;
         cur->large = large->next;
         large->next = NULL;
+
+#ifdef DEBUG_
+        printf("ResetPool free large buf:%p\n", large->buf);
+#endif
         free(large->buf);
-        free(large);
+
+        large->buf = NULL;
       }
 
-      // cur->current = NULL;
       cur->chain = NULL;
 
       free(cur);
@@ -102,17 +111,17 @@ void MemoryPool::ResetPool(size_t pool_id) {
       pool_head->large = large->next;
       large->next = NULL;
       free(large->buf);
-      free(large);
     }
 
     pool_head->large = NULL;
     pool_head->chain = NULL;
-    // pool_head->current = pool_head;
     pool_head->node.last = pool_head->node.start;
     pool_head->node.next = NULL;
     pool_head->node.failed_times = 0;
 
-    pool_tail = &pool_head->node.next;
+    list->pool_tail = &pool_head->node.next;
+  } else {
+    list->pool_tail = &list->pool_head;
   }
 
   list->current = list->pool_head;
@@ -137,14 +146,25 @@ void* MemoryPool::AllocateMinMemory(size_t pool_id, size_t size) {
   byte* start = NULL;
 
   while (cur) {
-    if (size < (size_t)(cur->node.end - cur->node.last)) {
+    if (size <= (size_t)(cur->node.end - cur->node.last)) {
       start = cur->node.last;
       cur->node.last += size;
+
+#ifdef DEBUG_
+      printf("\ncurbuf start:%p  end:%p\n start:%p\n last:%p\n size:%d\n",
+             cur->node.start, cur->node.end, start, cur->node.last, size);
+#endif
+
       return start;
     }
 
-    if (cur->node.failed_times++ > 4 && cur->node.next != NULL)
+    if (cur->node.failed_times++ > 4 && cur->node.next != NULL) {
       list->current = cur->node.next;
+
+#ifdef DEBUG_
+      printf("\ncur update:%p\n", list->current->node.start);
+#endif
+    }
 
     cur = cur->node.next;
   }
@@ -152,15 +172,15 @@ void* MemoryPool::AllocateMinMemory(size_t pool_id, size_t size) {
   Pool** tail = list->pool_tail;
   cur = list->pool_head;
   size_t alloc_size = (size_t)(cur->node.end - cur->node.start);
-  Pool* new_pool = (Pool*)malloc(alloc_size);
+  Pool* new_pool = (Pool*)malloc(alloc_size + sizeof(Pool));
   if (new_pool == NULL) return NULL;
 
   new_pool->node.start = (byte*)new_pool + sizeof(Pool);
-  new_pool->node.end = (byte*)new_pool + alloc_size;
+  new_pool->node.end = (byte*)new_pool + alloc_size + sizeof(Pool);
   new_pool->node.last = new_pool->node.start;
   new_pool->node.next = NULL;
+  new_pool->node.failed_times = 0;
 
-  // new_pool->current = new_pool;
   new_pool->chain = NULL;
   new_pool->large = NULL;
   new_pool->large_mark = alloc_size;
@@ -170,6 +190,13 @@ void* MemoryPool::AllocateMinMemory(size_t pool_id, size_t size) {
 
   *list->pool_tail = new_pool;
   list->pool_tail = &new_pool->node.next;
+
+#ifdef DEBUG_
+
+  printf("\nNEW curbuf start:%p end:%p\n start:%p\n last:%p\n size:%d\n",
+         new_pool->node.start, new_pool->node.end, start, new_pool->node.last,
+         size);
+#endif
 
   return start;
 }
@@ -193,7 +220,6 @@ void* MemoryPool::AllocateLargeMemory(size_t pool_id, size_t size) {
 
   large = (LargeNode*)AllocateMinMemory(pool_id, sizeof(LargeNode));
   if (large == NULL) {
-    free(large);
     return NULL;
   }
 
@@ -201,7 +227,30 @@ void* MemoryPool::AllocateLargeMemory(size_t pool_id, size_t size) {
   large->next = list->pool_head->large;
   list->pool_head->large = large;
 
+#ifdef DEBUG_
+  printf("\nNEW large buf:%p\nsize:%d\n", buf, size);
+#endif
+
   return buf;
+}
+
+int MemoryPool::FreeLargeMemory(size_t pool_id, void* large_buf) {
+  Pool* cur = mem_pools_[pool_id]->pool_head;
+  LargeNode* large = NULL;
+  while (cur != NULL) {
+    large = cur->large;
+    while (large != NULL) {
+      if (large->buf == large_buf) {
+        free(large_buf);
+        large->buf = NULL;
+        return 0;
+      }
+      large = large->next;
+    }
+    cur = cur->node.next;
+  }
+
+  return -1;
 }
 
 size_t MemoryPool::InitBlockChain(size_t pool_id, size_t init_size,
@@ -331,4 +380,18 @@ void MemoryPool::UpdateChain(size_t pool_id, size_t free_chain_id,
   }
 
   free->current = free->head_block;
+}
+
+MemoryPool::PoolList* MemoryPool::GetPoolList(size_t pool_id) {
+  if (pool_id < mem_pools_.size())
+    return mem_pools_[pool_id];
+  else
+    return NULL;
+}
+
+MemoryPool::BlockList* MemoryPool::GetBlockList(size_t block_id) {
+  if (block_id < block_bufs_.size())
+    return block_bufs_[block_id];
+  else
+    return NULL;
 }
