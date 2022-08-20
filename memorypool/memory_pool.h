@@ -83,7 +83,7 @@ class MemoryPool {
     ChainNode* current;
   };
 
-  size_t InitPool(size_t size);
+  int InitPool(size_t size);
   void DestoryPool(size_t pool_id);
   void ResetPool(size_t pool_id);
 
@@ -92,17 +92,16 @@ class MemoryPool {
   void* AllocateLargeMemory(size_t pool_id, size_t size);
   int FreeLargeMemory(size_t pool_id, void* large);
 
-  // size_t InitBlock(size_t pool_id, size_t init_size);
-  size_t InitBlockChain(size_t pool_id, size_t init_size, size_t node_num = 1);
-  size_t CopyBlockChain(size_t pool_id, size_t dest_chain_id,
+  int InitBlockChain(size_t pool_id, size_t init_size, size_t node_num = 1);
+  int CopyBlockChain(size_t pool_id, size_t dest_chain_id,
                         size_t src_chain_id);
   ChainNode* GetChainNode(size_t pool_id);
   ChainNode* GetFreeChainNode(size_t pool_id, size_t free_chain_id);
-  void UpdateChain(size_t pool_id, size_t free_chain_id, size_t busy_chain_id,
+  int UpdateChain(size_t pool_id, size_t free_chain_id, size_t busy_chain_id,
                    size_t out_chain_id, void* tag);
 
   PoolList* GetPoolList(size_t pool_id);
-  BlockList* GetBlockList(size_t block_id);                   
+  BlockList* GetBlockList(size_t block_id);               
 
  private:
   std::vector<PoolList*> mem_pools_;

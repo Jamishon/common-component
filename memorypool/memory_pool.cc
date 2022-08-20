@@ -1,7 +1,7 @@
 /**
  * @file memory_pool.cc
  * @author Jamishon
- * @brief Implemation function of memory pool.
+ * @brief Implemention function of memory pool.
  * @version 0.1
  * @date 2022-08-16
  *
@@ -20,9 +20,9 @@ MemoryPool::~MemoryPool() {
   }
 }
 
-size_t MemoryPool::InitPool(size_t init_size) {
+int MemoryPool::InitPool(size_t init_size) {
   Pool* pool = (Pool*)malloc(init_size + sizeof(Pool));
-  if (pool == NULL) return 0;
+  if (pool == NULL) return -1;
 
   pool->node.start = (byte*)pool + sizeof(Pool);
   pool->node.end = (byte*)pool + init_size + sizeof(Pool);
@@ -35,6 +35,8 @@ size_t MemoryPool::InitPool(size_t init_size) {
   pool->large_mark = init_size < LARGE_SIZE ? init_size : LARGE_SIZE;
 
   PoolList* list = (PoolList*)malloc(sizeof(PoolList));
+  if(list == NULL) return -1;
+
   list->pool_head = pool;
   list->current = pool;
   list->pool_tail = &pool->node.next;
@@ -80,7 +82,6 @@ void MemoryPool::ResetPool(size_t pool_id) {
   PoolList* list = mem_pools_.at(pool_id);
   if (list == NULL) return;
 
-  // Pool* pool_head = list->pool_head;
   if (list->pool_head != NULL) {
     Pool* cur = NULL;
     LargeNode* large = NULL;
@@ -250,6 +251,7 @@ int MemoryPool::FreeLargeMemory(size_t pool_id, void* large_buf) {
       if (large->buf == large_buf) {
         free(large_buf);
         large->buf = NULL;
+        large_buf = NULL;
         return 0;
       }
       large = large->next;
@@ -260,26 +262,27 @@ int MemoryPool::FreeLargeMemory(size_t pool_id, void* large_buf) {
   return -1;
 }
 
-size_t MemoryPool::InitBlockChain(size_t pool_id, size_t init_size,
+int MemoryPool::InitBlockChain(size_t pool_id, size_t init_size,
                                   size_t node_num) {
   BlockList* bl = (BlockList*)AllocateMinMemory(pool_id, sizeof(BlockList));
-  if (bl == NULL) return 0;  // todo
+  if (bl == NULL) return -1;
   bl->current = NULL;
   bl->head_block = NULL;
   bl->tail_block = &bl->head_block;
 
   byte* block_buf = (byte*)AllocateMemory(pool_id, init_size * node_num);
-  if (block_buf == NULL) return 0;  // todo
+  if (block_buf == NULL) return -1;
 
   for (int i = 0; i < node_num; i++) {
     ChainNode* pc = GetChainNode(pool_id);
-    if (pc == NULL) return 0;  // todo;
+    if (pc == NULL) return -1;
     Block* b = (Block*)AllocateMemory(pool_id, sizeof(Block));
-    if (b == NULL) return 0;  // todo
+    if (b == NULL) return -1;
     b->start = block_buf;
     b->end = block_buf + init_size;
     b->cur = b->start;
     b->last = b->start;
+    b->tag = NULL;
     block_buf += init_size;
 
     pc->block = b;
@@ -311,7 +314,7 @@ MemoryPool::ChainNode* MemoryPool::GetChainNode(size_t pool_id) {
   return pc;
 }
 
-size_t MemoryPool::CopyBlockChain(size_t pool_id, size_t dest_chain_id,
+int MemoryPool::CopyBlockChain(size_t pool_id, size_t dest_chain_id,
                                   size_t src_chain_id) {
   BlockList* dest = block_bufs_[dest_chain_id];
   BlockList* src = block_bufs_[src_chain_id];
@@ -319,7 +322,7 @@ size_t MemoryPool::CopyBlockChain(size_t pool_id, size_t dest_chain_id,
 
   while (cur != NULL) {
     ChainNode* pc = GetChainNode(pool_id);
-    if (pc == NULL) continue;
+    if (pc == NULL) return -1;
     pc->block = cur->block;
     pc->next = NULL;
     *dest->tail_block = pc;
@@ -354,19 +357,20 @@ MemoryPool::ChainNode* MemoryPool::GetFreeChainNode(size_t pool_id,
   return pc;
 }
 
-void MemoryPool::UpdateChain(size_t pool_id, size_t free_chain_id,
+int MemoryPool::UpdateChain(size_t pool_id, size_t free_chain_id,
                              size_t busy_chain_id, size_t out_chain_id,
                              void* tag) {
   BlockList* free = block_bufs_[free_chain_id];
   BlockList* busy = block_bufs_[busy_chain_id];
   BlockList* out = block_bufs_[out_chain_id];
   Pool* cur = mem_pools_[pool_id]->pool_head;
+  if( free == NULL || busy == NULL || out == NULL || cur == NULL) return -1;
 
   *busy->tail_block = out->head_block;
   busy->tail_block = out->tail_block;
 
-  ChainNode* pc = busy->head_block;
-  while (pc != NULL) {
+  ChainNode* pc = NULL;
+  while (pc = busy->head_block) {
     if (pc->block->last - pc->block->cur != 0) break;
 
     if (pc->block->tag != tag) {
@@ -387,6 +391,8 @@ void MemoryPool::UpdateChain(size_t pool_id, size_t free_chain_id,
   }
 
   free->current = free->head_block;
+
+  return free_chain_id;
 }
 
 MemoryPool::PoolList* MemoryPool::GetPoolList(size_t pool_id) {
