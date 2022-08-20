@@ -61,8 +61,8 @@ void MemoryPool::DestoryPool(size_t pool_id) {
       large->next = NULL;
 
 #ifdef DEBUG_
-        printf("DestoryPool free large buf:%p\n", large->buf);
-#endif      
+      printf("DestoryPool free large buf:%p\n", large->buf);
+#endif
     }
 
     cur->chain = NULL;
@@ -78,15 +78,15 @@ void MemoryPool::DestoryPool(size_t pool_id) {
  */
 void MemoryPool::ResetPool(size_t pool_id) {
   PoolList* list = mem_pools_.at(pool_id);
-  Pool* pool_head = list->pool_head;
-  if (pool_head != NULL) {
+  if (list == NULL) return;
+
+  // Pool* pool_head = list->pool_head;
+  if (list->pool_head != NULL) {
     Pool* cur = NULL;
-    Pool** ll = &pool_head->node.next;
     LargeNode* large = NULL;
 
-    while (*ll != NULL) {
-      cur = *ll;
-      ll = &cur->node.next;
+    while (cur = list->pool_head->node.next) {
+      list->pool_head->node.next = cur->node.next;
 
       while (cur->large != NULL) {
         large = cur->large;
@@ -106,20 +106,26 @@ void MemoryPool::ResetPool(size_t pool_id) {
       free(cur);
     }
 
-    while (pool_head->large != NULL) {
-      large = pool_head->large;
-      pool_head->large = large->next;
+    while (list->pool_head->large != NULL) {
+      large = list->pool_head->large;
+      list->pool_head->large = large->next;
       large->next = NULL;
       free(large->buf);
+    
+#ifdef DEBUG_
+      printf("ResetPool free large buf:%p\n", large->buf);
+#endif
+
+      large->buf = NULL;
     }
 
-    pool_head->large = NULL;
-    pool_head->chain = NULL;
-    pool_head->node.last = pool_head->node.start;
-    pool_head->node.next = NULL;
-    pool_head->node.failed_times = 0;
+    list->pool_head->large = NULL;
+    list->pool_head->chain = NULL;
+    list->pool_head->node.last = list->pool_head->node.start;
+    list->pool_head->node.next = NULL;
+    list->pool_head->node.failed_times = 0;
 
-    list->pool_tail = &pool_head->node.next;
+    list->pool_tail = &list->pool_head->node.next;
   } else {
     list->pool_tail = &list->pool_head;
   }
@@ -183,7 +189,7 @@ void* MemoryPool::AllocateMinMemory(size_t pool_id, size_t size) {
 
   new_pool->chain = NULL;
   new_pool->large = NULL;
-  new_pool->large_mark = alloc_size;
+  new_pool->large_mark = cur->large_mark;
 
   start = new_pool->node.start;
   new_pool->node.last += size;
@@ -193,9 +199,10 @@ void* MemoryPool::AllocateMinMemory(size_t pool_id, size_t size) {
 
 #ifdef DEBUG_
 
-  printf("\nNEW curbuf start:%p end:%p\n start:%p\n last:%p\n size:%d\n",
-         new_pool->node.start, new_pool->node.end, start, new_pool->node.last,
-         size);
+  printf(
+      "\nNEW curbuf start:%p end:%p\n start:%p\n last:%p\n size:%d\nlarge:%p\n",
+      new_pool->node.start, new_pool->node.end, start, new_pool->node.last,
+      size, new_pool->large);
 #endif
 
   return start;
