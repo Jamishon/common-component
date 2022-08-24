@@ -53,7 +53,7 @@ struct Ring {
   uint32_t mask;
   uint32_t capacity;
 
-  void* addr;  // Allocated ring array conent address
+  void* addr;  // Allocated ring + array conent address
 
   RingHeadTail prod;
 
@@ -75,6 +75,19 @@ class RingBuffer {
 
   int Enqueue(uint32_t ring_id, void* data, int num);
   int Dequeue(uint32_t ring_id, void* data, int num);
+
+  int UpdateConsumerHead(Ring *r, uint32_t num, uint32_t* old_value, uint32_t* new_value);
+  int UpdateProducerHead(Ring *r, uint32_t num, uint32_t* old_value, uint32_t* new_value);
+  int DataEnqueue(Ring* r, void* dest, void* src, uint32_t num, uint8_t unit_byte = sizeof(void *));
+  int DataDequeue(Ring* r, void* dest, void* src, uint32_t num, uint8_t unit_byte = sizeof(void *));
+
+  int UpdateConsumerTail(Ring *r, int num, uint32_t* old_value, uint32_t* new_value);
+  int UpdateProducerTail(Ring *r, int num, uint32_t* old_value, uint32_t* new_value);
+
+  void ReadMemoryBarrier();
+  void WriteMemoryBarrier();
+  bool CompareAndExchange(void* old_value, void* expt_value, void* new_value);
+  uint32_t AutomicLoad(void* value);
 
  private:
   //RingList ring_list_;
