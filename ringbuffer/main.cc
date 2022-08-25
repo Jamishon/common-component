@@ -10,4 +10,9 @@
  */
 #include "ring_buffer.h"
 
-int main() { RingBuffer rb; }
+using namespace ringbuffer;
+
+int main() { 
+   RingBuffer rb;
+   int r_id = rb.CreateRing("first", 256, 1, sizeof(void *));
+}

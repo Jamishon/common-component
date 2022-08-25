@@ -15,16 +15,19 @@
 #define ALIGN_BYTE 4
 #define ALIGNED __attribute__((__aligned__(ALIGN_BYTE)))
 
+#define byte __uint8_t
+
 namespace ringbuffer {
 
-struct Entry {
-  EntryNext next;
-  void* data;
-};
 
 struct EntryNext {
-  Entry* next;
-  Entry** prev;
+  struct Entry* next;
+  struct Entry** prev;
+};
+
+struct Entry {
+  struct EntryNext next;
+  void* data;
 };
 
 // struct RingList {
@@ -78,16 +81,16 @@ class RingBuffer {
 
   int UpdateConsumerHead(Ring *r, uint32_t num, uint32_t* old_value, uint32_t* new_value);
   int UpdateProducerHead(Ring *r, uint32_t num, uint32_t* old_value, uint32_t* new_value);
-  int DataEnqueue(Ring* r, void* dest, void* src, uint32_t num, uint8_t unit_byte = sizeof(void *));
-  int DataDequeue(Ring* r, void* dest, void* src, uint32_t num, uint8_t unit_byte = sizeof(void *));
+  int DataEnqueue(Ring* r, void* src, uint32_t num, uint8_t unit_byte = sizeof(void *));
+  int DataDequeue(Ring* r, void* dest, uint32_t num, uint8_t unit_byte = sizeof(void *));
 
-  int UpdateConsumerTail(Ring *r, int num, uint32_t* old_value, uint32_t* new_value);
-  int UpdateProducerTail(Ring *r, int num, uint32_t* old_value, uint32_t* new_value);
+  int UpdateConsumerTail(Ring *r, uint32_t* old_value, uint32_t* new_value);
+  int UpdateProducerTail(Ring *r, uint32_t* old_value, uint32_t* new_value);
 
   void ReadMemoryBarrier();
   void WriteMemoryBarrier();
-  bool CompareAndExchange(void* old_value, void* expt_value, void* new_value);
-  uint32_t AutomicLoad(void* value);
+  bool AutomicCompareAndSwap(volatile uint32_t* old_value, uint32_t* expt_value, uint32_t* new_value);
+  uint32_t AutomicFetchAdd(volatile uint32_t* value, uint32_t add);
 
  private:
   //RingList ring_list_;

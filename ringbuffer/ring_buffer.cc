@@ -16,7 +16,7 @@
 
 using namespace ringbuffer;
 
-static uint32_t RingBuffer::assign_id_ = 0;
+uint32_t RingBuffer::assign_id_ = 0;
 
 RingBuffer::RingBuffer() {}
 
@@ -69,7 +69,7 @@ int RingBuffer::ResetRing(uint32_t ring_id) {
 }
 
 int RingBuffer::FreeRing(uint32_t ring_id) {
-  std::lock_guard<std::mutex> guard(mtx);
+  std::lock_guard<std::mutex> guard(mtx_);
   Ring* r = ring_buffers_.at(ring_id);
   if (r == NULL) return -1;
   free(r);
@@ -78,7 +78,7 @@ int RingBuffer::FreeRing(uint32_t ring_id) {
 }
 
 Ring* RingBuffer::GetRing(uint32_t ring_id) {
-  std::lock_guard<std::mutex> guard(mtx);
+  std::lock_guard<std::mutex> guard(mtx_);
   Ring* r = ring_buffers_.at(ring_id);
   if (r == NULL) return NULL;
 
@@ -95,11 +95,13 @@ int RingBuffer::Enqueue(uint32_t ring_id, void* data, int num) {
 
   uint8_t size = sizeof(void*);
 
-  UpdateProducerHead(r, num, &old_head, &new_head);
+  result = UpdateProducerHead(r, num, &old_head, &new_head);
 
-  result = DataEnqueue(&r[1], data, num);
+  if (result < 1) return result;
 
-  UpdateProducerTail(r, num, &old_head, &new_head);
+  DataEnqueue(r, data, num, size);
+
+  UpdateProducerTail(r, &old_head, &new_head);
 
   return result;
 }
@@ -109,14 +111,18 @@ int RingBuffer::Dequeue(uint32_t ring_id, void* data, int num) {
   if (r == NULL) return -1;
 
   int result = 0;
+  uint32_t old_head = 0;
+  uint32_t new_head = 0;
 
   uint8_t size = sizeof(void*);
 
-  UpdateConsumerHead(r, num, size);
+  result = UpdateConsumerHead(r, num, &old_head, &new_head);
 
-  result = DataEnqueue(data, &r[1], num);
+  if (result < 1) return result;
 
-  UpdateConsumerTail(r, num, size);
+  DataDequeue(r, data, num, size);
+
+  UpdateConsumerTail(r, &old_head, &new_head);
 
   return result;
 }
@@ -135,15 +141,14 @@ int RingBuffer::UpdateProducerHead(Ring* r, uint32_t num, uint32_t* old_head,
     ReadMemoryBarrier();
 
     free_num = capacity - *old_head + r->cons.tail;
-    if (num > free_num) {
-      produce_num = free_num;
-    }
+    if (produce_num > free_num) produce_num = free_num;
+
     *new_head = *old_head + produce_num;
 
-    success = CompareAndExchange(&r->prod.head, old_head, new_head);
-  } while (success == 0)
+    success = AutomicCompareAndSwap((volatile uint32_t*)&r->prod.head, old_head, new_head);
+  } while (success == 0);
 
-      return produce_num;
+  return produce_num;
 }
 
 int RingBuffer::UpdateConsumerHead(Ring* r, uint32_t num, uint32_t* old_head,
@@ -161,9 +166,10 @@ int RingBuffer::UpdateConsumerHead(Ring* r, uint32_t num, uint32_t* old_head,
 
     exist_num = r->prod.tail - *old_head;
     if (exist_num < cons_num) cons_num = exist_num;
+
     *new_head = *old_head + cons_num;
 
-    success = CompareAndExchange(&r->cons.head, old_head, new_head);
+    success = AutomicCompareAndSwap(&r->cons.head, old_head, new_head);
 
   } while (success == 0);
 
@@ -176,7 +182,7 @@ int RingBuffer::UpdateProducerTail(Ring* r, uint32_t* old_value,
 
   WriteMemoryBarrier();
 
-  while (AutomicLoad(r->prod.tail) != *old_value) {
+  while (AutomicFetchAdd(&r->prod.tail, 0) != *old_value) {
   }
 
   r->prod.tail == *new_value;
@@ -184,37 +190,63 @@ int RingBuffer::UpdateProducerTail(Ring* r, uint32_t* old_value,
   return 0;
 }
 
-int RingBuffer::UpdateConsumerTail(Ring* r, int num, uint32_t* old_value,
+int RingBuffer::UpdateConsumerTail(Ring* r, uint32_t* old_value,
                                    uint32_t* new_value) {
   if (r == NULL) return -1;
 
   ReadMemoryBarrier();
 
-  while (AutomicLoad(r->cons.tail) != *old_value) {
+  while (AutomicFetchAdd(&r->cons.tail, 0) != *old_value) {
   }
 
-  r->cons.tail = new_value;
+  r->cons.tail = *new_value;
 }
 
-int RingBuffer::DataEnqueue(Ring* r, void* dest, void* src, uint32_t num) {
-  if (r == NULL || dest == NULL || src == NULL || num == 0) return -1;
+int RingBuffer::DataEnqueue(Ring* r, void* src, uint32_t num,
+                            uint8_t unit_byte) {
+  if (r == NULL || src == NULL || num == 0) return -1;
 
-  int cur_pos = r->prod.tail % r->size;
-  // void* index = dest + cur_pos;
+  uint32_t c = r->capacity;
+  uint32_t index_dest = r->prod.tail;
+  uint32_t index_src = 0;
 
-  for (int i = 0; i < num && cur_pos < r->size; i++, cur_pos++) {
-    dest[cur_pos] = src[i];
+  void* start = &r[1];
+  byte* pindex_dest = NULL;
+  byte* pindex_src = (byte *)src;
+  int i = 0;
+  int in = 0;
+
+  for (i = 0; i < num; i++) {
+    pindex_dest = (byte *)start + (index_dest++ % c) * unit_byte;
+
+    for (in = 0; in < unit_byte; in++) {
+      *(pindex_dest + in) = *(pindex_src + in);
+    }
+    pindex_src += unit_byte;
   }
 
   return num;
 }
 
-int RingBuffer::DataDequeue(Ring* r, void* dest, void* src, uint32_t num) {
-  if (r == NULL || dest == NULL || src == NULL || num == 0) return -1;
+int RingBuffer::DataDequeue(Ring* r, void* dest, uint32_t num,
+                            uint8_t unit_byte) {
+  if (r == NULL || dest == NULL || num == 0) return -1;
 
-  int cur_pos = r->cons.tail % r->size;
-  for (int i = 0; i < num && cur_pos < r->size; i++, cur_pos++) {
-    dest[i] = src[i];
+  uint32_t c = r->capacity;
+  uint32_t index_src = r->cons.tail;
+  void* start = &r[1];
+  byte* pindex_src = NULL;
+  byte* pindex_dest = (byte *)dest;
+  int i = 0;
+  int in = 0;
+
+  for (i = 0; i < num; i++) {
+    pindex_src = (byte *)start + (index_src++ % c) * unit_byte;
+
+    for (in = 0; in < unit_byte; in++) {
+      *(pindex_dest + in) = *(pindex_src + in);
+    }
+    pindex_dest += unit_byte;
   }
 
   return num;
@@ -225,18 +257,21 @@ void RingBuffer::ReadMemoryBarrier() { __sync_synchronize(); }
 void RingBuffer::WriteMemoryBarrier() {
   do {
     asm volatile("dmb st" : : : "memory");
-  } while (0)
+  } while (0);
+
+
 }
 
-bool RingBuffer::CompareAndExchange(void* old_value, void* expt_value,
-                                    void* new_value) {
-  // return __sync_val_compare_and_swap(old_value, expt_value, new_value);
-  return __atomic_compare_exchange(old_value, expt_value, new_value, 0,
-                                   __ATOMIC_ACQUIRE, __ATOMIC_ACQUIRE)
-             ? 1
-             : 0;
+bool RingBuffer::AutomicCompareAndSwap(volatile uint32_t* old_value, uint32_t* expt_value,
+                                    uint32_t* new_value) {
+   return __sync_bool_compare_and_swap(old_value, *expt_value, *new_value);
+  // return __atomic_compare_exchange(*old_value, expt_value, new_value, 0,
+  //                                  __ATOMIC_ACQUIRE, __ATOMIC_ACQUIRE)
+  //            ? 1
+  //            : 0;
 }
 
-uint32_t RingBuffer::AutomicLoad(void* value) {
-  return __automic_load_n(value, __ATOMIC_RELAXED);
+uint32_t RingBuffer::AutomicFetchAdd(volatile uint32_t* value, uint32_t add) {
+  return __sync_fetch_and_add(value, add);
+  //return __automic_load_n(value, __ATOMIC_RELAXED);
 }
