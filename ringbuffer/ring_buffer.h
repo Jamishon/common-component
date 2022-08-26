@@ -17,6 +17,8 @@
 
 #define byte __uint8_t
 
+#define DEBUG_
+
 namespace ringbuffer {
 
 
@@ -29,11 +31,6 @@ struct Entry {
   struct EntryNext next;
   void* data;
 };
-
-// struct RingList {
-//   Entry* first;
-//   Entry** last;
-// };
 
 enum SyncType {
   MT,  // multi-thread access
@@ -50,7 +47,7 @@ struct RingHeadTail {
 
 struct Ring {
   uint32_t ring_id;
-  std::string name;
+  uint32_t unit_byte;
   int flags;
   uint32_t size;
   uint32_t mask;
@@ -68,11 +65,11 @@ class RingBuffer {
   RingBuffer();
   ~RingBuffer();
 
-  int CreateRing(std::string name, uint32_t size, int flag, uint8_t unit_byte = sizeof(void *));
-  //int InitRing(Ring* r);
+  int CreateRing(uint32_t size, int flag, uint8_t unit_byte = sizeof(void *));
+  
   int ResetRing(uint32_t ring_id);
   int FreeRing(uint32_t ring_id);
-  //int AddRing(Ring *r);
+  
   int RemoveRing(uint32_t ring_id);
   Ring* GetRing(uint32_t ring_id);
 
@@ -81,8 +78,8 @@ class RingBuffer {
 
   int UpdateConsumerHead(Ring *r, uint32_t num, uint32_t* old_value, uint32_t* new_value);
   int UpdateProducerHead(Ring *r, uint32_t num, uint32_t* old_value, uint32_t* new_value);
-  int DataEnqueue(Ring* r, void* src, uint32_t num, uint8_t unit_byte = sizeof(void *));
-  int DataDequeue(Ring* r, void* dest, uint32_t num, uint8_t unit_byte = sizeof(void *));
+  int DataEnqueue(Ring* r, void* src, uint32_t old_head, uint32_t num, uint8_t unit_byte = sizeof(void *));
+  int DataDequeue(Ring* r, void* dest, uint32_t old_head, uint32_t num, uint8_t unit_byte = sizeof(void *));
 
   int UpdateConsumerTail(Ring *r, uint32_t* old_value, uint32_t* new_value);
   int UpdateProducerTail(Ring *r, uint32_t* old_value, uint32_t* new_value);
@@ -90,10 +87,10 @@ class RingBuffer {
   void ReadMemoryBarrier();
   void WriteMemoryBarrier();
   bool AutomicCompareAndSwap(volatile uint32_t* old_value, uint32_t* expt_value, uint32_t* new_value);
-  uint32_t AutomicFetchAdd(volatile uint32_t* value, uint32_t add);
+  uint32_t AtomicLoad(volatile uint32_t* value);
 
  private:
-  //RingList ring_list_;
+  
   std::map<uint32_t, Ring *> ring_buffers_;
   std::mutex mtx_;
   static uint32_t assign_id_;
