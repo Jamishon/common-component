@@ -52,8 +52,8 @@ int main() {
     }
   });
 
-  t1.join();
-  t2.join();
+  if(t1.joinable()) t1.join();
+  if(t2.joinable()) t2.join();
 
   rb.Dequeue(r_id, array_3, sizeof(array_3) / sizeof(int));
 
@@ -133,7 +133,7 @@ int main() {
     printf("%x %x %x %x\n", f.u8, f.u16, f.u32, f.u64);
   }
 
-  
+
 
   Foo array_foo_3[7];
 }
