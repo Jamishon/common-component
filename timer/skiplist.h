@@ -10,6 +10,7 @@
  */
 #include <malloc.h>
 #include <stdint.h>
+#include <time.h>
 
 #include <cstdlib>
 
@@ -21,9 +22,11 @@ struct Node {
 
 class SkipList {
  public:
-  SkipList(uint32_t depth = 10, float depth_ratio = 1 / 4)
-      : max_depth_(depth), depth_ratio_(depth_ratio), num_(0), cur_depth_(0) {
-    head_.next = &(Node*)calloc(max_depth_, sizeof(Node*));
+  SkipList(uint32_t depth = 10) : max_depth_(depth), num_(0), cur_depth_(1) {
+    Node** p = (Node**)calloc(max_depth_, sizeof(Node*));
+    if (p != NULL) {
+      head_.next = p;
+    }
     head_.data = NULL;
     head_.key = 0;
 
@@ -36,20 +39,22 @@ class SkipList {
     Node* next = NULL;
     while (cur != NULL) {
       next = cur->next[0];
-      free(*cur->next);
+      free(cur->next);
       free(cur->data);
       free(cur);
       cur = next;
     }
+
+    free(head_.next);
   }
 
   int GetPrevNode(Node* cur, Node** prev) {
-    if (cur == NULL || prev == NULL || *prev == NULL) return -1;
-    prev[cur_depth_] = head_.next[cur_depth_ - 1];
+    if (cur == NULL || prev == NULL) return -1;
+    prev[cur_depth_] = &head_;
     for (int i = cur_depth_ - 1; i >= 0; i--) {
       prev[i] = prev[i + 1];
       while (prev[i]->next[i] != NULL && cur->key > prev[i]->next[i]->key) {
-        prev[i] = prev[i]->next;
+        prev[i] = prev[i]->next[i];
       }
     }
 
@@ -57,7 +62,7 @@ class SkipList {
   }
 
   int GetNextNode(Node* cur, Node** next) {
-    if (cur == NULL || next == NULL || *next == NULL) return -1;
+    if (cur == NULL || next == NULL) return -1;
     next[cur_depth_] = head_.next[cur_depth_ - 1];
     for (int i = cur_depth_ - 1; i >= 0; i--) {
       next[i] = next[i + 1];
@@ -71,9 +76,9 @@ class SkipList {
 
   int AddNode(Node* cur) {
     if (cur == NULL) return -1;
-    Node* p = (Node*)calloc(cur_depth_ + 1, sizeof(Node*));
-    if (p == NULL) return -1;
-    Node** prev = &p;
+    Node** prev = (Node**)calloc(max_depth_ + 1, sizeof(Node*));
+    if (prev == NULL) return -1;
+
     if (GetPrevNode(cur, prev) != 0) return -1;
 
     uint32_t d = GetRadomNewNodeDepth();
@@ -81,21 +86,21 @@ class SkipList {
 
     for (int i = d; i >= 0; i--) {
       cur->next[i] = prev[i]->next[i];
-      prev[i]->next = cur;
+      prev[i]->next[i] = cur;
     }
 
-    free(p);
+    free(prev);
 
-    num++;
+    num_++;
 
     return 0;
   }
 
   int RemoveNode(Node* cur) {
     if (cur == NULL) return -1;
-    Node* p = (Node*)calloc(cur_depth_ + 1, sizeof(Node*));
-    if (p == NULL) return -1;
-    Node** prev = &p;
+    Node** prev = (Node**)calloc(max_depth_ + 1, sizeof(Node*));
+    if (prev == NULL) return -1;
+
     if (GetPrevNode(cur, prev) != 0) return -1;
     bool removed = false;
     for (int i = cur_depth_ - 1; i >= 0; i--) {
@@ -108,27 +113,47 @@ class SkipList {
       if (head_.next[i] == NULL) cur_depth_--;
     }
 
-    if (removed) num--;
+    if (removed) num_--;
 
-    free(p);
+    free(prev);
 
     return 0;
   }
 
   uint32_t GetRadomNewNodeDepth() {
     uint32_t r = rand();
-    uint32_t temp = r == 0 ? max_depth_ : (__buildin_ctz(r) - 1) / 2;
-    if (temp > max_depth_) temp = cur_depth_;
-    if (temp >= max_depth_) temp = max_depth_ - 1;
+    // int32_t temp = r == 0 ? max_depth_ : (__buildin_ctz(r) - 1) / 2;
+    uint32_t temp = r == 0 ? max_depth_ : (GetTrailingZeroNum(r)) / 2;
+    if (temp > max_depth_)
+      temp = cur_depth_;
+    else if (temp == max_depth_)
+      temp = max_depth_ - 1;
 
     return temp;
   }
 
   Node* InitNode(uint32_t key, void* data) {
     Node* p = (Node*)malloc(sizeof(Node));
+    if (p == NULL) return NULL;
     p->data = data;
     p->key = key;
-    p->next = NULL;
+    Node** n = (Node**)calloc(max_depth_, sizeof(Node*));
+    if (n == NULL) return NULL;
+    p->next = n;
+
+    return p;
+  }
+
+  static uint32_t GetTrailingZeroNum(uint32_t n) {
+    int z = 0;
+    for (int i = 0; i < 32; i++) {
+      if (n & (0x01 << i) == 0)
+        z++;
+      else
+        break;
+    }
+
+    return z;
   }
 
  private:
