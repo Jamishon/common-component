@@ -8,6 +8,9 @@
  * @copyright Copyright (c) 2022
  *
  */
+#ifndef SKIPLIST_H
+#define SKIPLIST_H
+
 #include <malloc.h>
 #include <stdint.h>
 #include <time.h>
@@ -17,7 +20,7 @@
 struct Node {
   Node** next;
   void* data;
-  uint32_t key;
+  uint64_t key;
 };
 
 class SkipList {
@@ -156,9 +159,31 @@ class SkipList {
     return z;
   }
 
+  uint32_t MaxDepth() {
+    return max_depth_;
+  }
+
+  Node* GetHead() {
+    return &head_;
+  }
+
+  uint32_t CurrentDepth() {
+    return cur_depth_;
+  }
+
+  void AddCurrentDepth() {
+    cur_depth_++;
+  }
+
+  void MinusCurrentDepth() {
+    cur_depth_--;
+  }
+
  private:
   Node head_;           // Dummy head
   uint32_t max_depth_;  // Max depth of skip list
   uint32_t num_;        // Current node num except head
   uint32_t cur_depth_;  // Current depth
 };
+
+#endif
