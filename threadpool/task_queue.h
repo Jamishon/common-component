@@ -30,7 +30,9 @@ class TaskQueue {
     while (!queue_.empty()) {
       T* pt = queue_.front();
       queue_.pop();
-      delete pt;
+      if(pt != NULL)
+        delete pt;
+      pt = NULL;  
     }
   }
 
