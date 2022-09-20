@@ -18,8 +18,6 @@
 
 #include "../threadpool/task_queue.h"
 
-//typedef std::function<void(std::string)> LogFun;
-
 enum LogLevel { DEBUG = 0, INFO, WARNING, ERROR, CRASH };
 
 typedef void* (*thread_fun)(void* param);
@@ -35,7 +33,6 @@ class Log {
     to_file_ = !outputpath_.empty();
     running = true;
 
-    //thread_fun fun = reinterpret_cast<thread_fun>(&Log::ThreadFun);
     pthread_create(&thread_, NULL, Log::ThreadFun, this);
   }
 
