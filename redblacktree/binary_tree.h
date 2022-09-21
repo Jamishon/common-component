@@ -14,11 +14,15 @@ struct TreeNode {
   TreeNode* left;
   TreeNode* right;
   TreeNode* parent;
+  int key; 
 };
 
 class BinaryTree {
  public:
-  int Search(TreeNode* node);
+  BinaryTree();
+  ~BinaryTree();
+
+  TreeNode* Search(int key);
   TreeNode* Minimum(TreeNode* root);
   TreeNode* Maximum(TreeNode* root);
   TreeNode* Predecessor(TreeNode* node);
