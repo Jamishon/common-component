@@ -10,13 +10,14 @@
  */
 
 #include "binary_tree.h"
+#include <stack>
 
-BinaryTree::BinaryTree() : root(NULL) {}
+BinaryTree::BinaryTree() : root_(NULL) {}
 
 BinaryTree::~BinaryTree() {}
 
 TreeNode* BinaryTree::Search(int key) {
-  if (!root) return NULL;
+  if (!root_) return NULL;
   TreeNode* cur = root;
   while (cur != NULL) {
     if (cur->key == key)
@@ -97,18 +98,80 @@ int BinaryTree::Insert(TreeNode* node) {
     } else if (node->key > cur->key) {
       cur->right = node;
     } else {
-      return -2;
+      return -1;
     }
 
     node->parent = cur;
 
   } else {
     root_ = node;
+    node->parent = NULL;
+  }
+
+  return 0;
+}
+
+int BinaryTree::Transplant(TreeNode* root, TreeNode* replacer,
+                           TreeNode* replaced) {
+  if (root == NULL || replaced == NULL) return -1;
+  if (replaced->parent == NULL) {
+    root = replacer;
+
+    if (replacer != NULL) replacer->parent = NULL;
+  } else {
+    if (replaced->parent->left == replaced) {
+      replaced->parent->left = replacer;
+    } else if (replaced->parent->right == replaced) {
+      replaced->parent->right = replacer;
+    }
+
+    if (replacer != NULL) replacer->parent = replaced->parent;
   }
 
   return 0;
 }
 
 int BinaryTree::Delete(TreeNode* node) {
-    return 0;
+  if (!node) return -1;
+
+  if (node->left == NULL) {
+    Transplant(root_, node->right, node);
+  } else if (node->right == NULL) {
+    Transplant(root_, node->left, node)
+  } else {
+    TreeNode* suc = Minimum(node->right);
+    if (suc->parent != node) {
+      Transplant(root_, suc->right, suc);
+      suc->right = node->right;
+      node->right->parent = suc;
+    }
+    Transplant(root_, suc, node);
+    suc->left = node->left;
+    suc->left->parent = suc;
+  }
+
+  return 0;
+}
+
+void BinaryTree::PostorderTraverse(TreeNode* root, Visit visit) {
+  if(!root) return;
+  
+  TreeNode* cur = root;
+  std::stack<TreeNode *> stack;
+  while(cur->left != NULL) {
+    visit(cur);
+
+    stack.pop
+  }
+
+}
+
+int BinaryTree::InorderTraverse(TreeNode* root, Visit visit) {
+
+  return 0;
+}
+
+int BinaryTree::PostorderTraverse(TreeNode* root, Visit visit) {
+
+  return 0;
 }

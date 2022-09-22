@@ -29,11 +29,16 @@ class BinaryTree {
   TreeNode* Successor(TreeNode* node);
   int Insert(TreeNode* node);
   int Delete(TreeNode* node);
+  void Transplant(TreeNode* root, TreeNode* replacer, TreeNode* replaced);
 
   int PreorderTraverse(TreeNode* root);
   int PostorderTraverse(TreeNode* root);
   int InorderTraverse(TreeNode* root);
 
+  TreeNode* GetRoot() {
+    return root_;
+  }
+
  private:
-  TreeNode* root;
+  TreeNode* root_;
 };
