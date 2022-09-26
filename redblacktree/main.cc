@@ -9,6 +9,8 @@
  * 
  */
 
+#include <stdio.h>
+
 int main() {
-    
+    printf("\ntest case 1:--------------------------\n");
 }
