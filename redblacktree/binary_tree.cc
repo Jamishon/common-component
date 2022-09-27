@@ -10,7 +10,20 @@
  */
 
 #include "binary_tree.h"
+
+#include <stdio.h>
+
 #include <stack>
+
+void PrintKey(TreeNode* node) {
+  if (node) printf(" %d ", node->key);
+}
+
+TreeNode* CreateTreeNode(int key, void* data) {
+  struct TreeNode* p = new TreeNode{data, NULL, NULL, NULL, key};
+
+  return p;
+}
 
 BinaryTree::BinaryTree() : root_(NULL) {}
 
@@ -18,11 +31,11 @@ BinaryTree::~BinaryTree() {}
 
 TreeNode* BinaryTree::Search(int key) {
   if (!root_) return NULL;
-  TreeNode* cur = root;
+  TreeNode* cur = root_;
   while (cur != NULL) {
     if (cur->key == key)
       return cur;
-    else if (cur->key < key)
+    else if (cur->key > key)
       cur = cur->left;
     else
       cur = cur->right;
@@ -48,9 +61,9 @@ TreeNode* BinaryTree::Maximum(TreeNode* root) {
   return cur;
 }
 
-TreeNode* BinaryTree::Predecessor(TreeNode* node) {
+TreeNode* BinaryTree::InorderPredecessor(TreeNode* node) {
   if (!node) return NULL;
-  TreeNode* pre = NULL;
+  TreeNode* pre = node->parent;
   if (node->left) {
     pre = Maximum(node->left);
   } else {
@@ -64,9 +77,9 @@ TreeNode* BinaryTree::Predecessor(TreeNode* node) {
   return pre;
 }
 
-TreeNode* BinaryTree::Successor(TreeNode* node) {
+TreeNode* BinaryTree::InorderSuccessor(TreeNode* node) {
   if (!node) return NULL;
-  TreeNode* suc = NULL;
+  TreeNode* suc = node->parent;
   if (node->right) {
     suc = Minimum(node->right);
   } else {
@@ -137,7 +150,7 @@ int BinaryTree::Delete(TreeNode* node) {
   if (node->left == NULL) {
     Transplant(root_, node->right, node);
   } else if (node->right == NULL) {
-    Transplant(root_, node->left, node)
+    Transplant(root_, node->left, node);
   } else {
     TreeNode* suc = Minimum(node->right);
     if (suc->parent != node) {
@@ -153,25 +166,67 @@ int BinaryTree::Delete(TreeNode* node) {
   return 0;
 }
 
-void BinaryTree::PostorderTraverse(TreeNode* root, Visit visit) {
-  if(!root) return;
-  
+void BinaryTree::PreorderTraverse(TreeNode* root, Visit visit) {
+  if (!root) return;
+
   TreeNode* cur = root;
-  std::stack<TreeNode *> stack;
-  while(cur->left != NULL) {
-    visit(cur);
-
-    stack.pop
+  std::stack<TreeNode*> stack;
+  while (cur != NULL || !stack.empty()) {
+    if (cur != NULL) {
+      visit(cur);
+      if (cur->right != NULL) stack.push(cur);
+      cur = cur->left;
+    } else if (!stack.empty()) {
+      TreeNode* top = stack.top();
+      stack.pop();
+      cur = top->right;
+    }
   }
-
 }
 
-int BinaryTree::InorderTraverse(TreeNode* root, Visit visit) {
+void BinaryTree::InorderTraverse(TreeNode* root, Visit visit) {
+  if (!root) return;
 
-  return 0;
+  TreeNode* cur = root;
+  std::stack<TreeNode*> stack;
+  while (cur != NULL || !stack.empty()) {
+    if (cur != NULL) {
+      stack.push(cur);
+      cur = cur->left;
+    } else if (!stack.empty()) {
+      TreeNode* top = stack.top();
+      stack.pop();
+      visit(top);
+      cur = top->right;
+    }
+  }
 }
 
-int BinaryTree::PostorderTraverse(TreeNode* root, Visit visit) {
+void BinaryTree::PostorderTraverse(TreeNode* root, Visit visit) {
+  if (!root) return;
 
-  return 0;
+  TreeNode* cur = root;
+  TreeNode* visited = NULL;
+  std::stack<TreeNode*> stack;
+  while (cur != NULL || !stack.empty()) {
+    if (cur != NULL) {
+      stack.push(cur);
+      cur = cur->left;
+    } else if (!stack.empty()) {
+      TreeNode* top = stack.top();
+      if (top->right != NULL) {
+        if (top->right != visited) {
+          cur = top->right;
+        } else {
+          visit(top);
+          stack.pop();
+          visited = top;
+        }
+      } else {
+        visit(top);
+        stack.pop();
+        visited = top;
+      }
+    }
+  }
 }

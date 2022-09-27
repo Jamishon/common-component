@@ -14,8 +14,14 @@ struct TreeNode {
   TreeNode* left;
   TreeNode* right;
   TreeNode* parent;
-  int key; 
+  int key;
 };
+
+typedef void (*Visit)(TreeNode*);
+
+TreeNode* CreateTreeNode(int key, void* data);
+
+void PrintKey(TreeNode* node);
 
 class BinaryTree {
  public:
@@ -25,19 +31,17 @@ class BinaryTree {
   TreeNode* Search(int key);
   TreeNode* Minimum(TreeNode* root);
   TreeNode* Maximum(TreeNode* root);
-  TreeNode* Predecessor(TreeNode* node);
-  TreeNode* Successor(TreeNode* node);
+  TreeNode* InorderPredecessor(TreeNode* node);
+  TreeNode* InorderSuccessor(TreeNode* node);
   int Insert(TreeNode* node);
   int Delete(TreeNode* node);
-  void Transplant(TreeNode* root, TreeNode* replacer, TreeNode* replaced);
+  int Transplant(TreeNode* root, TreeNode* replacer, TreeNode* replaced);
 
-  int PreorderTraverse(TreeNode* root);
-  int PostorderTraverse(TreeNode* root);
-  int InorderTraverse(TreeNode* root);
+  void PreorderTraverse(TreeNode* root, Visit visit);
+  void PostorderTraverse(TreeNode* root, Visit visit);
+  void InorderTraverse(TreeNode* root, Visit visit);
 
-  TreeNode* GetRoot() {
-    return root_;
-  }
+  TreeNode* GetRoot() { return root_; }
 
  private:
   TreeNode* root_;
