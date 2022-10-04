@@ -9,16 +9,18 @@
  * 
  */
 
-struct RBTreeNode {
+#include "binary_tree.h"
+
+struct RBTreeNode : public TreeNode  {
     int key;
     RBTreeNode* left;
     RBTreeNode* right;
     RBTreeNode* parent;
-    bool color;  // red 0, black 1
+    int color;  // red 0, black 1
     void* data;
 };
 
-class RedBlackTree {
+class RedBlackTree : public BinaryTree {
 public:
     RedBlackTree();
 
