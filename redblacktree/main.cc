@@ -11,11 +11,15 @@
 
 #include <stdio.h>
 
+#include <random>
 #include <vector>
 
-#include "binary_tree.h"
+#include <algorithm>
 
-#include <random>
+#include "binary_tree.h"
+#include "redblack_tree.h"
+
+#define DEBUG_
 
 int main() {
   BinaryTree bt;
@@ -77,14 +81,14 @@ int main() {
       printf("successor:%d\n", p4->key);
     else
       printf("successor is NULL\n");
-    printf("\n");  
+    printf("\n");
   }
 
   printf("\ntest case 5:--------------------------\n");
   int ret = -1;
   int t = 10;
   srand(0);
-  while ( t--) {
+  while (t--) {
     int r = rand() % 10;
     TreeNode* node = vc_bt.at(r);
     ret = bt.Delete(node);
@@ -92,4 +96,90 @@ int main() {
     bt.InorderTraverse(bt.GetRoot(), PrintKey);
     printf("\n");
   }
+
+  printf("\n Red-Balck tree: \n");
+  printf("\ntest case 5:--------------------------\n");
+
+  RedBlackTree rbt;
+  std::vector<RBTreeNode*> vc_rbt;
+  for (int key : a) {
+    RBTreeNode* p = CreateRBTreeNode(key, nullptr);
+    // RBTreeNode* root = rbt.GetRoot();
+    printf("new rbt node : %p\n", p);
+    ret = rbt.Insert(rbt.GetRootP(), p);
+    vc_rbt.push_back(p);
+
+    rbt.InorderTraverse(rbt.GetRoot(), PrintRBNode);
+    printf("\n");
+
+    printf("RBTreeNode: %p, key: %d, color:%d, insert result:%d\n", p, p->key,
+           p->color, ret);
+  }
+
+  printf("\ntest case 6:--------------------------\n");
+
+  //rbt.PostorderTraverse(rbt.GetRoot(), PrintRBNode);
+  printf("\n");
+  rbt.InorderTraverse(rbt.GetRoot(), PrintRBNode);
+  printf("\n");
+  //rbt.PreorderTraverse(rbt.GetRoot(), PrintRBNode);
+  printf("\n");
+
+
+
+  printf("\ntest case 7:--------------------------\n");
+  ret = -1;
+  t = 0;
+  while (t < 10) {
+
+    RBTreeNode* node = vc_rbt.at(t++);
+    ret = rbt.Delete(rbt.GetRootP(), node);
+    printf(" rb node key:%d, node:%p, delete ret:%d\n", node->key, node,
+           ret);
+    rbt.InorderTraverse(rbt.GetRoot(), PrintRBNode);
+    printf("\n");
+  }
+
+
+  printf("\ntest case 8:--------------------------\n");
+  int max_num = 100;
+  std::vector<int> vc_num;
+  for(int i=0; i<max_num; i++) {
+    vc_num.push_back(i);
+  }
+  std::random_shuffle(vc_num.begin(), vc_num.end());
+  
+  for(RBTreeNode* node : vc_rbt) {
+    delete node;
+  }
+  vc_rbt.clear();
+  RBTreeNode** pr = rbt.GetRootP();
+  *pr = nullptr;
+
+  for(int key: vc_num) {
+    RBTreeNode* node = CreateRBTreeNode(key, nullptr);
+    rbt.Insert(rbt.GetRootP(), node);
+    vc_rbt.push_back(node);
+  }
+  rbt.InorderTraverse(rbt.GetRoot(), PrintRBNode);
+    printf("\n");
+
+
+printf("\ntest case 9:--------------------------\n");
+
+  ret = -1;
+  t = 0;
+  while (t++ < max_num) {
+    int r = rand() % max_num;
+    RBTreeNode* node = vc_rbt.at(r);
+    printf("node key:%d will be delete \n", node->key);
+    ret = rbt.Delete(rbt.GetRootP(), node);
+    printf("r:%d, rb node key:%d, node:%p, delete ret:%d\n", r, node->key, node,
+           ret);
+    rbt.InorderTraverse(rbt.GetRoot(), PrintRBNode);
+    printf("\n");
+  }
+
+
+
 }

@@ -20,7 +20,7 @@ void PrintKey(TreeNode* node) {
 }
 
 TreeNode* CreateTreeNode(int key, void* data) {
-  struct TreeNode* p = new TreeNode{data, NULL, NULL, NULL, key};
+  struct TreeNode* p = new TreeNode{key, data, NULL, NULL, NULL};
 
   return p;
 }

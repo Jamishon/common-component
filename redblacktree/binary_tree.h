@@ -9,12 +9,15 @@
  *
  */
 
+#ifndef BINARY_TREE_H
+#define BINARY_TREE_H
+
 struct TreeNode {
+  int key;
   void* data;
   TreeNode* left;
   TreeNode* right;
   TreeNode* parent;
-  int key;
 };
 
 typedef void (*Visit)(TreeNode*);
@@ -46,3 +49,5 @@ class BinaryTree {
  private:
   TreeNode* root_;
 };
+
+#endif
