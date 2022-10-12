@@ -20,6 +20,10 @@ struct BTreeNode {
     std::vector<BTreeNode*> children;   // pointer of num+1 children node
 };
 
+typedef void (*Visit)(BTreeNode* node, int index);
+
+void PrintNode(BTreeNode* node, int index);
+
 class BTree {
 public:
     BTree(int degree);
@@ -31,7 +35,17 @@ public:
     int Insert(BTreeNode** root, int key, void* data = nullptr);
     int InsertNotFull(BTree* root, int key, void* data = nullptr);
 
-    int Delete(BTreeNode* root, int key);
+    int Delete(BTreeNode** root, int key);
+
+    void InorderTraverse(BTreeNode* root, Visit v);
+
+    BTreeNode** GetRootP() {
+        return &root_;
+    }
+
+    BTreeNode* GetRoot() {
+        return root_;
+    }
 
 private:
     unsigned int degree_;
