@@ -4,44 +4,57 @@
  * @brief Test case of B-Tree
  * @version 0.1
  * @date 2022-10-09
- * 
+ *
  * @copyright Copyright (c) 2022
- * 
+ *
  */
 
-#include "b_tree.h"
 #include <stdio.h>
-#include <vector>
+
 #include <algorithm>
+#include <vector>
+
+#include "b_tree.h"
 
 int main() {
+  printf("test case 1 ---------------------------------\n");
+
+  int degree = 2;
+  int max_num = 100;
+  BTree btree(degree);
+  std::vector<int> vc_num;
+
+  for (int i = 0; i < max_num; i++) {
+    vc_num.push_back(i);
+  }
+
+  std::random_shuffle(vc_num.begin(), vc_num.end());
+
+  for (int i : vc_num) {
+    printf(" %d ", i);
+  }
+  printf("\n\n");
+
+  for (int key : vc_num) {
+    btree.Insert(btree.GetRootP(), key, nullptr);
+  }
+
+  btree.InorderTraverse(btree.GetRoot(), PrintNode);
+  printf("\n\n");
+
+  printf("test case 2 ---------------------------------\n");
+  for (int i : vc_num) {
+    auto r = btree.Search(btree.GetRoot(), i);
+    BTreeNode* node = std::get<0>(r);
+    int index = std::get<1>(r);
+
+    if (node != nullptr && node->keys.size() > index && index >= 0)
+      printf("Search key:%d, result: %d, node:%p, index:%d, key in node:%d\n",
+             i, node != nullptr && node->keys[index] == i, node, index,
+             node->keys[index]);
+    else
+      printf("Search key:%d, result:false, node:%p, index:%d", i, node, index);
+  }
+
   
-    printf("test case 1 ---------------------------------\n");
-    
-    int degree = 2;
-    int max_num = 100;
-    BTree btree(degree);
-    std::vector<int> vc_num;
-
-    for(int i=0; i<max_num; i++) {
-        vc_num.push_back(i);
-    }
-
-    std::random_shuffle(vc_num.begin(), vc_num.end());
-
-    for(int i : vc_num) {
-        printf(" %d ", i);
-    }
-    printf("\n\n");
-
-    for(int key : vc_num) {
-        btree.Insert(btree.GetRootP(), key, nullptr);
-    }
-
-    btree.InorderTraverse(btree.GetRoot(), PrintNode);
-    printf("\n\n");
-
-
-    
-
 }

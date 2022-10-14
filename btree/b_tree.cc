@@ -12,10 +12,8 @@
 
 #include <stdio.h>
 
-#include <map>
-#include <queue>
-#include <stack>
 #include <tuple>
+#include <vector>
 
 void PrintNode(BTreeNode* node, int index) {
   if (node && index < node->keys.size()) {
@@ -102,10 +100,10 @@ int BTree::Insert(BTreeNode** root, int key, void* data) {
       cur->num++;
 
 #ifdef DEBUG_
-      printf("Insert key:%d, data:%p\n", key, data);  
+      printf("Insert key:%d, data:%p\n", key, data);
       InorderTraverse(*root, PrintNode);
       printf("\n\n");
-#endif      
+#endif
 
       break;
     } else {
@@ -152,6 +150,8 @@ int BTree::Insert(BTreeNode** root, int key, void* data) {
 
 int BTree::Delete(BTreeNode** root, int key) {
   if (root == nullptr || *root == nullptr) return -1;
+
+  
 
   return 0;
 }
@@ -203,4 +203,124 @@ void BTree::InorderTraverse(BTreeNode* root, Visit visit) {
       }
     }
   }
+}
+
+std::tuple<BTreeNode*, int> BTree::InorderPredecessor(BTreeNode* root,
+                                                      int key) {
+  if (root == null) return std::make_tuple(nullptr, -1);
+
+  int index_on_root = 0;
+  int index_to_leaf = 0;
+  BTreeNode* cur = root;
+  BTreeNode* pre = nullptr;
+  int index = 0;
+
+  do {
+    index = 0;
+    while (index < cur->num && key > cur->keys[index]) index++;
+    if (cur == root)
+      index_on_root = index;
+    else if (!cur->leaf && cur->children[index]->leaf) {
+      index_to_leaf = index;
+      pre = cur;
+    }
+
+    if (index < cur->num && key == cur->keys[index]) {
+      if (cur->leaf) {
+        if (index == 0 && index_to_leaf == 0) {
+          if (index_on_root == 0) {
+            return std::make_tuple(nullptr, 0);
+          } else {
+            return std::make_tuple(root, index_on_root - 1);
+          }
+        } else if (index == 0) {
+          return std::make_tuple(pre, index_to_leaf - 1);
+        } else {
+          return std::make_tuple(cur, index - 1);
+        }
+      } else {
+        auto max = Maximum(cur->children[index]);
+        return std::make_tuple(std::get<0>(max), std::get<1>(max));
+      }
+
+    } else if (cur->leaf) {
+      break;
+    } else {
+      cur = cur->children[index];
+    }
+
+  } while (cur != nullptr);
+
+  return std::make_tuple(nullptr, -1);
+}
+
+std::tuple<BTreeNode*, int> BTree::InorderSuccessor(BTreeNode* root, int key) {
+  if (root == nullptr) return std::make_tuple(nullptr, -1);
+
+  int index_on_root = 0;
+  int index_to_leaf = 0;
+  int index = 0;
+  BTreeNode* cur = root;
+  BTreeNode* next = nullptr;
+
+  do {
+    while (index < cur->num && key > cur->keys[index]) index++;
+    if (cur == root)
+      index_on_root = index;
+    else if (!cur->leaf && cur->children[index]->leaf) {
+      next = cur;
+      index_to_leaf = index;
+    }
+
+    if (index < cur->num && key == cur->keys[index]) {
+      if (cur->leaf) {
+        if (index == cur->num - 1 && index_to_leaf == next->num) {
+          if (index_on_root == root->num) {
+            return std::make_tuple(nullptr, 0);
+          } else {
+            return std::make_tuple(root, index_on_root);
+          }
+        } else if (index == cur->num - 1) {
+          return std::make_tuple(next, index_to_leaf);
+        } else {
+          return std::make_tuple(cur, index + 1);
+        }
+      } else {
+        auto min = Mininum(cur, index + 1);
+        return std::make_tuple(std::get<0>(min), std::get<1>::(min));
+      }
+
+    } else if (cur->leaf) {
+      break;
+    } else {
+      cur = cur->children[index];
+    }
+  }
+
+  return std::make_tuple(nullptr, -1);
+}
+
+std::tuple<BTreeNode*, int> BTree::Maximum(BTreeNode* root) {
+  if (root == nullptr) return std::make_tuple(nullptr, -1);
+
+  BTreeNode* cur = root;
+  int index = 0;
+  while (!cur->leaf) {
+    cur = cur->children[cur->num];
+  }
+
+  index = cur->num - 1;
+
+  return std::make_tuple(cur, index);
+}
+
+std::tuple<BTreeNode*, int> BTree::Maximum(BTreeNode* root) {
+  if (root == nullptr) return std::make_tuple(nullptr, -1);
+
+  BTreeNode* cur = root;
+  while (!cur->leaf) {
+    cur = cur->children[0];
+  }
+
+  return std::make_tuple(cur, 0);
 }

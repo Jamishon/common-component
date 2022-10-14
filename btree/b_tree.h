@@ -39,6 +39,12 @@ public:
 
     void InorderTraverse(BTreeNode* root, Visit v);
 
+    std::tuple<BTreeNode*, int> InorderPredecessor(BTreeNode* root, int key);
+    std::tuple<BTreeNode*, int> InorderSuccessor(BTreeNode* root, int key);
+
+    std::tuple<BTreeNode*, int> Maximum(BTreeNode* root);
+    std::tuple<BTreeNode*, int> Mininum(BTreeNode* root);
+
     BTreeNode** GetRootP() {
         return &root_;
     }
