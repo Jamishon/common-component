@@ -56,5 +56,33 @@ int main() {
       printf("Search key:%d, result:false, node:%p, index:%d", i, node, index);
   }
 
-  
+  printf("\n\n\ntest case 3 ---------------------------------\n");
+
+  for(int i:vc_num) {
+    auto result = btree.InorderPredecessor(btree.GetRoot(), i);
+    BTreeNode* pre = std::get<0>(result);
+    int index = std::get<1>(result);
+    if(pre != nullptr) {
+      
+      printf("key:%d, pre:%d\n", i, pre->keys[index]);
+    } else {
+      printf("key:%d, predecessor not exist !\n", i);
+    }
+  }
+
+  printf("\n\n\ntest case 4 ---------------------------------\n");
+
+  for(int i:vc_num) {
+    auto result = btree.InorderSuccessor(btree.GetRoot(), i);
+    BTreeNode* pre = std::get<0>(result);
+    int index = std::get<1>(result);
+    if(pre != nullptr) {
+      
+      printf("key:%d, suc:%d\n", i, pre->keys[index]);
+    } else {
+      printf("key:%d, successor not exist !\n", i);
+    }
+  }
+
+
 }

@@ -12,6 +12,7 @@
 
 #include <stdio.h>
 
+#include <stack>
 #include <tuple>
 #include <vector>
 
@@ -151,9 +152,147 @@ int BTree::Insert(BTreeNode** root, int key, void* data) {
 int BTree::Delete(BTreeNode** root, int key) {
   if (root == nullptr || *root == nullptr) return -1;
 
-  
+  int index = 0;
+  BTreeNode* del = nullptr;
+  BTreeNode* cur = *root;
+  BTreeNode* pre = nullptr;
+  BTreeNode* next = nullptr;
 
-  return 0;
+  while (cur != nullptr) {
+    index = 0;
+    while (index < cur->num && key > cur->keys[index]) index++;
+
+    if (index < cur->num && key == cur->keys[index]) {
+      if (cur->leaf) {
+        cur->keys.erase(cur->keys.begin() + index);  // case 1
+        cur->data.erase(cur->data.begin() + index);
+        cur->num--;
+
+        return 0;
+      } else {
+        std::tuple<BTreeNode*, int> replacer;
+        int next_children = 0;
+        if (cur->children[index]->num > degree_ - 1) {
+          replacer = InorderPredecessor(cur, key);  // case 2a
+          next_children = index;
+        } else if (cur->children[index + 1]->num > degree_ - 1) {
+          replacer = InorderSuccessor(cur, key);  // case 2b
+          next_children = index + 1;
+        } else {
+          pre = cur->children[index];  // case 2c
+          pre->data.emplace_back(cur->data[index]);
+          pre->keys.emplace_back(key);
+
+          cur->keys.erase(cur->keys.begin() + index);
+          cur->keys.erase(cur->data.begin() + index);
+          cur->num--;
+
+          next = cur->children[index + 1];
+          for (int i = 0; i < next->num; i++) {
+            pre->data.emplace_back(next->data[i]);
+            pre->keys.emplace_back(next->keys[i]);
+            pre->children.emplace_back(next->children[i]);
+          }
+          pre->children.emplace_back(next->children[next->num]);
+          pre->num += next->num;
+
+          delete next;
+          next = nullptr;
+          cur = pre;
+
+          continue;
+        }
+
+        BTreeNode* replacer_node = std::get<0>(replacer);
+        int idx = std::get<1>(replacer);
+        key = replacer_node->keys[idx];  // delete replacer key
+        cur->keys[index] = key;
+        cur->data[index] = replacer_node->data[idx];
+        cur = cur->children[next_children];
+      }
+    } else if (cur->leaf) {
+      break;
+    } else {
+      BTreeNode* cur_child = cur->children[index];
+      if (cur_child->num <= degree_ - 1) {
+        if (index - 1 >= 0 && cur->children[index - 1]->num > degree_ - 1) {
+          cur_child->keys.insert(cur_child->keys.begin(), cur->keys[index - 1]);
+          cur_child->data.insert(cur_child->data.begin(), cur->data[index - 1]);
+          cur_child->num++;
+
+          pre = cur->children[index - 1];
+          cur->keys[index] = pre->keys.back();
+          cur->data[index] = pre->data.back();
+          pre->keys.pop_back();
+          pre->data.pop_back();
+          pre->num--;
+
+        } else if (index + 1 <= cur->num &&
+                   cur->children[index + 1] > degree_ - 1) {
+          cur_child->keys.insert(cur_child->keys.end(), cur->keys[index]);
+          cur_child->data.insert(cur_child->data.end(), cur->data[index]);
+          cur_child->num++;
+
+          next = cur->children[index + 1];
+          cur->keys[index] = next->keys.front();
+          cur->data[index] = next->data.front();
+          next->keys.erase(next->keys.begin());
+          next->data.erase(next->data.begin());
+          next->num--;
+
+        } else {
+          if (index == 0) {
+            next = cur->children[index + 1];
+            next->keys.insert(next->keys.begin(), cur->keys[index]);
+            next->data.insert(next->data.begin(), cur->data[index]);
+            next->num++;
+            cur->keys.erase(cur->keys.begin() + index);
+            cur->data.erase(cur->data.begin() + index);
+            cur->num--;
+
+            for (int i = 0; i < cur_child->num, i++) {
+              next->keys.insert(next->keys.begin(), cur_child->keys[i]);
+              next->data.insert(next->data.begin(), cur_child->data[i]);
+              next->children.insert(next->children.begin(),
+                                    cur_child->children[i]);
+            }
+            next->children.insert(next->children.begin(),
+                                  cur_child->children[cur_child->num]);
+            next->num += cur_child->num;
+
+            delete cur_child;
+            cur = next;
+            next = nullptr;
+
+          } else {
+            pre = cur->children[index - 1];
+            pre->keys.emplace_back(cur->keys[index]);
+            pre->data.emplace_back(cur->data[index]);
+            pre->num++;
+            cur->keys.erase(cur->keys.begin() + index);
+            cur->data.erase(cur->data.begin() + index);
+            cur->num--;
+
+            for (int i = 0; i < cur_child->num; i++) {
+              pre->keys.push_back(cur_child->keys[i]);
+              pre->data.push_back(cur_child->data[i]);
+              pre->children.push_back(cur_child->children[i]);
+            }
+            pre->children.push_back(cur_child->num);
+            pre->num += cur_child->num;
+
+            delete cur_child;
+            cur = pre;
+            pre = nullptr;
+          }
+        }
+      }
+
+      cur = cur->children[index];
+    }
+  }
+
+  return -1;
 }
 
 void BTree::InorderTraverse(BTreeNode* root, Visit visit) {
@@ -207,40 +346,37 @@ void BTree::InorderTraverse(BTreeNode* root, Visit visit) {
 
 std::tuple<BTreeNode*, int> BTree::InorderPredecessor(BTreeNode* root,
                                                       int key) {
-  if (root == null) return std::make_tuple(nullptr, -1);
+  if (root == nullptr) return std::make_tuple(nullptr, -1);
 
-  int index_on_root = 0;
-  int index_to_leaf = 0;
   BTreeNode* cur = root;
-  BTreeNode* pre = nullptr;
   int index = 0;
+  std::stack<std::tuple<BTreeNode*, int>> stack;
 
   do {
     index = 0;
     while (index < cur->num && key > cur->keys[index]) index++;
-    if (cur == root)
-      index_on_root = index;
-    else if (!cur->leaf && cur->children[index]->leaf) {
-      index_to_leaf = index;
-      pre = cur;
-    }
+
+    stack.emplace(std::make_tuple(cur, index));
 
     if (index < cur->num && key == cur->keys[index]) {
       if (cur->leaf) {
-        if (index == 0 && index_to_leaf == 0) {
-          if (index_on_root == 0) {
-            return std::make_tuple(nullptr, 0);
-          } else {
-            return std::make_tuple(root, index_on_root - 1);
-          }
-        } else if (index == 0) {
-          return std::make_tuple(pre, index_to_leaf - 1);
-        } else {
+        if (index != 0) {
           return std::make_tuple(cur, index - 1);
+        } else {
+          stack.pop();
+          while (!stack.empty()) {
+            auto node_and_index = stack.top();
+            stack.pop();
+            index = std::get<1>(node_and_index);
+            if (index != 0) {
+              cur = std::get<0>(node_and_index);
+              return std::make_tuple(cur, index - 1);
+            }
+          }
+          return std::make_tuple(nullptr, 0);
         }
       } else {
-        auto max = Maximum(cur->children[index]);
-        return std::make_tuple(std::get<0>(max), std::get<1>(max));
+        return Maximum(cur->children[index]);
       }
 
     } else if (cur->leaf) {
@@ -257,45 +393,42 @@ std::tuple<BTreeNode*, int> BTree::InorderPredecessor(BTreeNode* root,
 std::tuple<BTreeNode*, int> BTree::InorderSuccessor(BTreeNode* root, int key) {
   if (root == nullptr) return std::make_tuple(nullptr, -1);
 
-  int index_on_root = 0;
-  int index_to_leaf = 0;
   int index = 0;
   BTreeNode* cur = root;
-  BTreeNode* next = nullptr;
+  std::stack<std::tuple<BTreeNode*, int>> stack;
 
   do {
+    index = 0;
     while (index < cur->num && key > cur->keys[index]) index++;
-    if (cur == root)
-      index_on_root = index;
-    else if (!cur->leaf && cur->children[index]->leaf) {
-      next = cur;
-      index_to_leaf = index;
-    }
+
+    stack.emplace(std::make_tuple(cur, index));
 
     if (index < cur->num && key == cur->keys[index]) {
       if (cur->leaf) {
-        if (index == cur->num - 1 && index_to_leaf == next->num) {
-          if (index_on_root == root->num) {
-            return std::make_tuple(nullptr, 0);
-          } else {
-            return std::make_tuple(root, index_on_root);
-          }
-        } else if (index == cur->num - 1) {
-          return std::make_tuple(next, index_to_leaf);
-        } else {
+        if (index < cur->num - 1) {
           return std::make_tuple(cur, index + 1);
+        } else {
+          stack.pop();
+          while (!stack.empty()) {
+            auto node_and_index = stack.top();
+            stack.pop();
+            index = std::get<1>(node_and_index);
+            cur = std::get<0>(node_and_index);
+            if (index < cur->num) {
+              return std::make_tuple(cur, index);
+            }
+          }
+          return std::make_tuple(nullptr, 0);
         }
       } else {
-        auto min = Mininum(cur, index + 1);
-        return std::make_tuple(std::get<0>(min), std::get<1>::(min));
+        return Mininum(cur->children[index + 1]);
       }
-
     } else if (cur->leaf) {
       break;
     } else {
       cur = cur->children[index];
     }
-  }
+  } while (cur != nullptr);
 
   return std::make_tuple(nullptr, -1);
 }
@@ -314,7 +447,7 @@ std::tuple<BTreeNode*, int> BTree::Maximum(BTreeNode* root) {
   return std::make_tuple(cur, index);
 }
 
-std::tuple<BTreeNode*, int> BTree::Maximum(BTreeNode* root) {
+std::tuple<BTreeNode*, int> BTree::Mininum(BTreeNode* root) {
   if (root == nullptr) return std::make_tuple(nullptr, -1);
 
   BTreeNode* cur = root;
