@@ -182,19 +182,28 @@ int BTree::Delete(BTreeNode** root, int key) {
           pre = cur->children[index];  // case 2c
           pre->data.emplace_back(cur->data[index]);
           pre->keys.emplace_back(key);
+          pre->num++;
 
           cur->keys.erase(cur->keys.begin() + index);
-          cur->keys.erase(cur->data.begin() + index);
+          cur->data.erase(cur->data.begin() + index);
           cur->num--;
 
           next = cur->children[index + 1];
-          for (int i = 0; i < next->num; i++) {
-            pre->data.emplace_back(next->data[i]);
-            pre->keys.emplace_back(next->keys[i]);
-            pre->children.emplace_back(next->children[i]);
-          }
-          pre->children.emplace_back(next->children[next->num]);
+          pre->keys.insert(pre->keys.end(), next->keys.begin(),
+                           next->keys.end());
+          pre->data.insert(pre->data.end(), next->data.begin(),
+                           next->data.end());
+          pre->children.insert(pre->children.end(), next->children.begin(),
+                               next->children.end());
           pre->num += next->num;
+
+          cur->children.erase(cur->children.begin() + index + 1);
+
+          if (*root == cur && cur->num == 0) {
+            delete cur;
+            cur = nullptr;
+            *root = pre;
+          }
 
           delete next;
           next = nullptr;
@@ -215,22 +224,28 @@ int BTree::Delete(BTreeNode** root, int key) {
     } else {
       BTreeNode* cur_child = cur->children[index];
       if (cur_child->num <= degree_ - 1) {
-        if (index - 1 >= 0 && cur->children[index - 1]->num > degree_ - 1) {
+        if (index - 1 >= 0 &&
+            cur->children[index - 1]->num > degree_ - 1) {  // case 3a
           cur_child->keys.insert(cur_child->keys.begin(), cur->keys[index - 1]);
           cur_child->data.insert(cur_child->data.begin(), cur->data[index - 1]);
           cur_child->num++;
 
           pre = cur->children[index - 1];
-          cur->keys[index] = pre->keys.back();
-          cur->data[index] = pre->data.back();
+          cur->keys[index - 1] = pre->keys.back();
+          cur->data[index - 1] = pre->data.back();
           pre->keys.pop_back();
           pre->data.pop_back();
+          if (!cur_child->leaf) {
+            cur_child->children.insert(cur_child->children.begin(),
+                                       pre->children.back());
+            pre->children.pop_back();
+          }
           pre->num--;
 
         } else if (index + 1 <= cur->num &&
-                   cur->children[index + 1] > degree_ - 1) {
-          cur_child->keys.insert(cur_child->keys.end(), cur->keys[index]);
-          cur_child->data.insert(cur_child->data.end(), cur->data[index]);
+                   cur->children[index + 1]->num > degree_ - 1) {  // case 3a
+          cur_child->keys.emplace_back(cur->keys[index]);
+          cur_child->data.emplace_back(cur->data[index]);
           cur_child->num++;
 
           next = cur->children[index + 1];
@@ -238,52 +253,77 @@ int BTree::Delete(BTreeNode** root, int key) {
           cur->data[index] = next->data.front();
           next->keys.erase(next->keys.begin());
           next->data.erase(next->data.begin());
+          if (!cur_child->leaf) {
+            cur_child->children.push_back(next->children.front());
+            next->children.erase(next->children.begin());
+          }
+
           next->num--;
 
-        } else {
+        } else {  // case 3b
           if (index == 0) {
             next = cur->children[index + 1];
-            next->keys.insert(next->keys.begin(), cur->keys[index]);
-            next->data.insert(next->data.begin(), cur->data[index]);
+            next->keys.emplace(next->keys.begin(), cur->keys[0]);
+            next->data.insert(next->data.begin(), cur->data[0]);
             next->num++;
-            cur->keys.erase(cur->keys.begin() + index);
-            cur->data.erase(cur->data.begin() + index);
+            cur->keys.erase(cur->keys.begin());
+            cur->data.erase(cur->data.begin());
+            cur->children.erase(cur->children.begin());
             cur->num--;
 
-            for (int i = 0; i < cur_child->num, i++) {
-              next->keys.insert(next->keys.begin(), cur_child->keys[i]);
-              next->data.insert(next->data.begin(), cur_child->data[i]);
-              next->children.insert(next->children.begin(),
-                                    cur_child->children[i]);
-            }
+            next->keys.insert(next->keys.begin(), cur_child->keys.begin(),
+                              cur_child->keys.end());
+            next->data.insert(next->data.begin(), cur_child->data.begin(),
+                              cur_child->data.end());
             next->children.insert(next->children.begin(),
-                                  cur_child->children[cur_child->num]);
+                                  cur_child->children.begin(),
+                                  cur_child->children.end());
+
             next->num += cur_child->num;
+
+            if (*root == cur && cur->num == 0) {
+              *root = next;
+              delete cur;
+              cur = nullptr;
+            }
 
             delete cur_child;
             cur = next;
             next = nullptr;
 
+            continue;
+
           } else {
             pre = cur->children[index - 1];
-            pre->keys.emplace_back(cur->keys[index]);
-            pre->data.emplace_back(cur->data[index]);
+            pre->keys.emplace_back(cur->keys[index - 1]);
+            pre->data.emplace_back(cur->data[index - 1]);
             pre->num++;
-            cur->keys.erase(cur->keys.begin() + index);
-            cur->data.erase(cur->data.begin() + index);
+            cur->keys.erase(cur->keys.begin() + index - 1);
+            cur->data.erase(cur->data.begin() + index - 1);
+            cur->children.erase(cur->children.begin() + index);
             cur->num--;
 
-            for (int i = 0; i < cur_child->num; i++) {
-              pre->keys.push_back(cur_child->keys[i]);
-              pre->data.push_back(cur_child->data[i]);
-              pre->children.push_back(cur_child->children[i]);
-            }
-            pre->children.push_back(cur_child->num);
+            pre->keys.insert(pre->keys.end(), cur_child->keys.begin(),
+                             cur_child->keys.end());
+            pre->data.insert(pre->data.end(), cur_child->data.begin(),
+                             cur_child->data.end());
+            pre->children.insert(pre->children.end(),
+                                 cur_child->children.begin(),
+                                 cur_child->children.end());
+
             pre->num += cur_child->num;
+
+            if (*root == cur && cur->num == 0) {
+              *root = pre;
+              delete cur;
+              cur = nullptr;
+            }
 
             delete cur_child;
             cur = pre;
             pre = nullptr;
+
+            continue;
           }
         }
       }

@@ -84,5 +84,13 @@ int main() {
     }
   }
 
+  printf("\n\n\ntest case 5 ---------------------------------\n");
+  int result = -1;
+  for(int i:vc_num) {
+    result = btree.Delete(btree.GetRootP(), i);
+    printf("delete key:%d, result:%d\n", i, result);
+    btree.InorderTraverse(btree.GetRoot(), PrintNode);
+    printf("\n\n");
+  }
 
 }
