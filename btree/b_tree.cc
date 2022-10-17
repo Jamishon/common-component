@@ -108,7 +108,7 @@ int BTree::Insert(BTreeNode** root, int key, void* data) {
 
       break;
     } else {
-      // cur = cur->children[index];
+
       BTreeNode* left = cur->children[index];
       if (left->num == max_node) {
         BTreeNode* right = new BTreeNode{0, false};
@@ -153,7 +153,6 @@ int BTree::Delete(BTreeNode** root, int key) {
   if (root == nullptr || *root == nullptr) return -1;
 
   int index = 0;
-  BTreeNode* del = nullptr;
   BTreeNode* cur = *root;
   BTreeNode* pre = nullptr;
   BTreeNode* next = nullptr;

@@ -20,7 +20,7 @@ int main() {
   printf("test case 1 ---------------------------------\n");
 
   int degree = 2;
-  int max_num = 100;
+  int max_num = 1000;
   BTree btree(degree);
   std::vector<int> vc_num;
 
