@@ -85,6 +85,20 @@ int main() {
   }
 
   printf("\n\n\ntest case 5 ---------------------------------\n");
+
+  for (int i : vc_num) {
+    printf(" %d ", i);
+  }
+  printf("\n\n");
+
+  std::random_shuffle(vc_num.begin(), vc_num.end());
+
+  for (int i : vc_num) {
+    printf(" %d ", i);
+  }
+  printf("\n\n");
+
+
   int result = -1;
   for(int i:vc_num) {
     result = btree.Delete(btree.GetRootP(), i);
